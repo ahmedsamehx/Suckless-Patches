@@ -1,0 +1,96 @@
+From 1a297d0a28c7f90064ce72b76838d2fc45b1cf3e Mon Sep 17 00:00:00 2001
+From: Ahmed <ahmed-devel@proton.me>
+Date: Wed, 6 Aug 2025 00:36:37 +0300
+Subject: [PATCH] repatching push_no_master
+
+---
+ config.def.h |  2 ++
+ dwm.c        | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 46 insertions(+)
+
+diff --git a/config.def.h b/config.def.h
+index 9670656..25626bc 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -87,6 +87,8 @@ static const Key keys[] = {
+ 	{ MODKEY,                       XK_period, focusmon,       {.i = +1 } },
+ 	{ MODKEY|ShiftMask,             XK_comma,  tagmon,         {.i = -1 } },
+ 	{ MODKEY|ShiftMask,             XK_period, tagmon,         {.i = +1 } },
++	{ MODKEY|ControlMask,           XK_j, 	   pushdown,       {0} },
++	{ MODKEY|ControlMask,           XK_k, 	   pushup,         {0} },
+ 	TAGKEYS(                        XK_1,                      0)
+ 	TAGKEYS(                        XK_2,                      1)
+ 	TAGKEYS(                        XK_3,                      2)
+diff --git a/dwm.c b/dwm.c
+index c469bfe..65f13b0 100644
+--- a/dwm.c
++++ b/dwm.c
+@@ -185,7 +185,10 @@ static void motionnotify(XEvent *e);
+ static void movemouse(const Arg *arg);
+ static Client *nexttiled(Client *c);
+ static void pop(Client *c);
++static Client *prevtiled(Client *c);
+ static void propertynotify(XEvent *e);
++static void pushdown(const Arg *arg);
++static void pushup(const Arg *arg);
+ static void quit(const Arg *arg);
+ static Monitor *recttomon(int x, int y, int w, int h);
+ static void resize(Client *c, int x, int y, int w, int h, int interact);
+@@ -1217,6 +1220,16 @@ pop(Client *c)
+ 	arrange(c->mon);
+ }
+ 
++Client *
++prevtiled(Client *c) {
++	Client *p, *r;
++
++	for(p = selmon->clients, r = NULL; p && p != c; p = p->next)
++		if(!p->isfloating && ISVISIBLE(p))
++			r = p;
++	return r;
++}
++
+ void
+ propertynotify(XEvent *e)
+ {
+@@ -1254,6 +1267,37 @@ propertynotify(XEvent *e)
+ 	}
+ }
+ 
++void
++pushdown(const Arg *arg) {
++	Client *sel = selmon->sel, *c;
++
++	if(!sel || sel->isfloating || sel == nexttiled(selmon->clients))
++		return;
++	if((c = nexttiled(sel->next))) {
++		detach(sel);
++		sel->next = c->next;
++		c->next = sel;
++	}
++	focus(sel);
++	arrange(selmon);
++}
++
++void
++pushup(const Arg *arg) {
++	Client *sel = selmon->sel, *c;
++
++	if(!sel || sel->isfloating)
++		return;
++	if((c = prevtiled(sel)) && c != nexttiled(selmon->clients)) {
++		detach(sel);
++		sel->next = c;
++		for(c = selmon->clients; c->next != sel->next; c = c->next);
++		c->next = sel;
++	}
++	focus(sel);
++	arrange(selmon);
++}
++
+ void
+ quit(const Arg *arg)
+ {
+-- 
+2.50.1
+
